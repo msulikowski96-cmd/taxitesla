@@ -10,8 +10,8 @@ import { WhenPicker } from '../../components/WhenPicker';
 import { useAuth } from '../../context/auth';
 import { useOrder } from '../../context/order';
 import { formatPrice } from '../../lib/format';
-import { CAR_CLASSES, EXTRAS, getCarClass, quote } from '../../lib/pricing';
-import { colors, radius, space } from '../../theme';
+import { EXTRAS, getCarClass, quote } from '../../lib/pricing';
+import { colors, space } from '../../theme';
 
 const PAYMENTS: { id: PaymentMethod; label: string; icon: any }[] = [
   { id: 'card', label: 'Karta / BLIK w aucie', icon: 'card-outline' },
@@ -104,54 +104,21 @@ export default function Order() {
       <SectionTitle>Kiedy</SectionTitle>
       <WhenPicker value={draft.scheduledAt} onChange={(scheduledAt) => setDraft((d) => ({ ...d, scheduledAt }))} />
 
-      <SectionTitle>Wybierz Teslę</SectionTitle>
-      {CAR_CLASSES.map((c) => {
-        const selected = c.id === draft.carClass;
-        const cq = quote({
-          pickup: draft.pickup,
-          destination: draft.destination,
-          carClass: c.id,
-          extras: [],
-          when: draft.scheduledAt ?? new Date(),
-        });
-        return (
-          <Pressable
-            key={c.id}
-            accessibilityRole="radio"
-            accessibilityState={{ selected }}
-            onPress={() =>
-              setDraft((d) => ({ ...d, carClass: c.id, passengers: Math.min(d.passengers, c.seats) }))
-            }
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              padding: space.lg,
-              marginBottom: space.sm,
-              borderRadius: radius.lg,
-              borderWidth: selected ? 2 : 1,
-              borderColor: selected ? colors.white : colors.border,
-              backgroundColor: selected ? colors.surfaceAlt : colors.surface,
-            }}
-          >
-            <Ionicons name="car-sport" size={34} color={selected ? colors.white : colors.textMuted} style={{ marginRight: space.md }} />
-            <View style={{ flex: 1 }}>
-              <Text style={[ui.body, { fontWeight: '700' }]}>
-                {c.name} <Text style={{ color: colors.textMuted, fontWeight: '400' }}>· {c.model}</Text>
-              </Text>
-              <Text style={ui.muted}>{c.description}</Text>
-              <Row style={{ marginTop: 4 }}>
-                <Ionicons name="person-outline" size={13} color={colors.textMuted} />
-                <Text style={[ui.muted, { marginLeft: 3, marginRight: space.md }]}>{c.seats}</Text>
-                <Ionicons name="briefcase-outline" size={13} color={colors.textMuted} />
-                <Text style={[ui.muted, { marginLeft: 3 }]}>{c.bags}</Text>
-              </Row>
-            </View>
-            <Text style={[ui.body, { fontWeight: '700' }]}>
-              {cq.fare != null ? `${cq.fare} zł` : `od ${c.minFare} zł`}
-            </Text>
-          </Pressable>
-        );
-      })}
+      <SectionTitle>Twoje auto</SectionTitle>
+      <Card style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <Ionicons name="car-sport" size={34} color={colors.white} style={{ marginRight: space.md }} />
+        <View style={{ flex: 1 }}>
+          <Text style={[ui.body, { fontWeight: '700' }]}>{car.model}</Text>
+          <Text style={ui.muted}>{car.description}</Text>
+          <Row style={{ marginTop: 4 }}>
+            <Ionicons name="person-outline" size={13} color={colors.textMuted} />
+            <Text style={[ui.muted, { marginLeft: 3, marginRight: space.md }]}>{car.seats}</Text>
+            <Ionicons name="briefcase-outline" size={13} color={colors.textMuted} />
+            <Text style={[ui.muted, { marginLeft: 3 }]}>{car.bags}</Text>
+          </Row>
+        </View>
+        <Text style={[ui.body, { fontWeight: '700' }]}>{q.fare != null ? `${q.fare} zł` : `od ${car.minFare} zł`}</Text>
+      </Card>
 
       <SectionTitle>Pasażerowie</SectionTitle>
       <Row>

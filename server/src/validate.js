@@ -55,8 +55,9 @@ function password(pw) {
 }
 
 function rideInput(b) {
-  const car = CAR_CLASSES[b.carClass];
-  if (!car) throw bad('Wybierz klasę samochodu');
+  const carClass = b.carClass ?? 'model_y'; // single-model fleet
+  const car = CAR_CLASSES[carClass];
+  if (!car) throw bad('Nieznany samochód');
   const passengers = Number(b.passengers);
   if (!Number.isInteger(passengers) || passengers < 1 || passengers > car.seats)
     throw bad(`Ten samochód mieści maks. ${car.seats} pasażerów`);
@@ -75,7 +76,7 @@ function rideInput(b) {
     pickup: place(b.pickup, 'adres odbioru'),
     destination: place(b.destination, 'adres docelowy'),
     scheduledAt,
-    carClass: b.carClass,
+    carClass,
     passengers,
     extras,
     payment: b.payment,

@@ -31,7 +31,7 @@ const ride = {
   pickup: { address: 'Poznań Główny', lat: 52.4017, lng: 16.9119 },
   destination: { address: 'Lotnisko Ławica', lat: 52.421, lng: 16.8263 },
   scheduledAt: null,
-  carClass: 'business',
+  carClass: 'model_y',
   passengers: 2,
   extras: ['meet_greet'],
   payment: 'card',
@@ -72,7 +72,7 @@ test('create ride recomputes price server-side', async () => {
   const r = await call('POST', '/rides', ride, token);
   assert.equal(r.status, 201);
   assert.equal(r.data.status, 'pending');
-  assert.ok(r.data.priceEstimate > 60, `price ${r.data.priceEstimate}`);
+  assert.ok(r.data.priceEstimate >= 70, `price ${r.data.priceEstimate}`); // ~8 km + meet & greet
   rideId = r.data.id;
   const list = await call('GET', '/rides', null, token);
   assert.equal(list.data.length, 1);
@@ -85,7 +85,7 @@ test('dispatcher assigns driver; user sees it; cancel rules', async () => {
   const upd = await call(
     'PATCH',
     `/admin/rides/${rideId}`,
-    { status: 'driver_on_way', driver: { name: 'Marek', phone: '600111222', car: 'Tesla Model S', plate: 'PO 12345' } },
+    { status: 'driver_on_way', driver: { name: 'Marek', phone: '600111222', car: 'Tesla Model Y', plate: 'PO 12345' } },
     'admin-token-123456',
   );
   assert.equal(upd.status, 200);

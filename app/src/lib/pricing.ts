@@ -13,50 +13,18 @@ export type CarClass = {
 };
 
 // Tariff in PLN. Keep in sync with server/src/pricing.js.
+// The fleet is a single model; the list shape stays so another car can be added later.
 export const CAR_CLASSES: CarClass[] = [
   {
-    id: 'premium',
+    id: 'model_y',
     name: 'Premium',
-    model: 'Tesla Model 3',
-    description: 'Elegancki sedan na co dzień',
-    seats: 4,
-    bags: 2,
-    startFee: 15,
-    perKm: 4.2,
-    minFare: 35,
-  },
-  {
-    id: 'comfort',
-    name: 'Premium XL',
     model: 'Tesla Model Y',
-    description: 'Więcej miejsca na bagaż',
+    description: 'Przestronny elektryczny SUV z dużym bagażnikiem',
     seats: 4,
     bags: 4,
     startFee: 18,
     perKm: 4.8,
     minFare: 40,
-  },
-  {
-    id: 'business',
-    name: 'Business',
-    model: 'Tesla Model S',
-    description: 'Dla biznesu i wyjątkowych okazji',
-    seats: 4,
-    bags: 3,
-    startFee: 25,
-    perKm: 6,
-    minFare: 60,
-  },
-  {
-    id: 'vip',
-    name: 'VIP',
-    model: 'Tesla Model X',
-    description: 'Drzwi Falcon Wing, do 6 osób',
-    seats: 6,
-    bags: 4,
-    startFee: 35,
-    perKm: 7.5,
-    minFare: 90,
   },
 ];
 
