@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "TaxiTesla",
+    "slug": "taxitesla",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "pl.taxitesla.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Lokalizacja pozwala ustawić adres odbioru tam, gdzie jesteś."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0A0A0B",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "pl.taxitesla.app",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "output": "single",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Lokalizacja pozwala ustawić adres odbioru tam, gdzie jesteś."
+        }
+      ],
+      "expo-secure-store"
+    ],
+    "scheme": "taxitesla",
+    "backgroundColor": "#0A0A0B",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0A0B"
+    },
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
