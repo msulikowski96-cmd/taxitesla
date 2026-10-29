@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Panel dyspozytora</title>
+<style>
+  :root { --bg:#0a0a0b; --surface:#141416; --alt:#1c1c1f; --border:#2a2a2e; --text:#f5f5f7; --muted:#9a9aa2; --accent:#e31937; --ok:#2fbf71; --warn:#f5b53d; --danger:#ff5a5f; }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.4 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; }
+  header { display:flex; align-items:center; gap:12px; padding:16px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--bg); z-index:2; flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0; flex:1; letter-spacing:.5px; }
+  header h1::before { content:""; display:inline-block; width:8px; height:8px; background:var(--accent); margin-right:8px; vertical-align:middle; }
+  main { max-width:1100px; margin:0 auto; padding:16px; }
+  button, select, input { font:inherit; color:var(--text); background:var(--alt); border:1px solid var(--border); border-radius:10px; padding:8px 12px; }
+  button { cursor:pointer; } button.primary { background:var(--text); color:#000; border-color:var(--text); font-weight:600; }
+  .tabs button.on { background:var(--text); color:#000; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; margin-bottom:12px; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+  .grow { flex:1; min-width:220px; }
+  .muted { color:var(--muted); font-size:13px; }
+  .badge { display:inline-block; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; background:var(--alt); }
+  .pending { color:var(--warn); background:rgba(245,181,61,.14); }
+  .confirmed, .driver_on_way { color:var(--ok); background:rgba(47,191,113,.14); }
+  .cancelled { color:var(--danger); background:rgba(227,25,55,.14); }
+  .price { font-size:20px; font-weight:700; }
+  a { color:var(--text); }
+  form.driver { display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:8px; margin-top:12px; }
+  #login { max-width:380px; margin:15vh auto; }
+  #login input { width:100%; margin:12px 0; }
+  .err { color:var(--danger); }
+  .empty { text-align:center; padding:48px; color:var(--muted); }
+</style>
+</head>
+<body>
+<div id="login" class="card" hidden>
+  <h2 style="margin-top:0">Panel dyspozytora</h2>
+  <p class="muted">Wpisz ADMIN_TOKEN ustawiony na serwerze.</p>
+  <input id="tok" type="password" placeholder="Token" autocomplete="current-password" />
+  <button class="primary" id="go">Zaloguj</button>
+  <p class="err" id="lerr"></p>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <h1>PANEL DYSPOZYTORA</h1>
+    <div class="tabs row">
+      <button data-f="active" class="on">Aktywne</button>
+      <button data-f="pending">Do potwierdzenia</button>
+      <button data-f="all">Wszystkie</button>
+    </div>
+    <button id="out">Wyloguj</button>
+  </header>
+  <main id="list"></main>
+</div>
+
+<script>
+const STATUS = { pending:'Oczekuje', confirmed:'Potwierdzony', driver_on_way:'Kierowca w drodze', in_progress:'W trakcie', completed:'Zakończony', cancelled:'Anulowany' };
+const CAR = { premium:'Model 3 · Premium', comfort:'Model Y · Premium XL', business:'Model S · Business', vip:'Model X · VIP' };
+const EXTRA = { child_seat:'Fotelik', meet_greet:'Powitanie z tabliczką', pet:'Zwierzę', extra_luggage:'Dodatkowy bagaż' };
+const PAY = { card:'Karta/BLIK', cash:'Gotówka', invoice:'Faktura' };
+let token = null, filter = 'active', rides = [], editing = false;
+try { token = sessionStorage.getItem('adm'); } catch {}
+
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const fmt = (iso) => new Date(iso).toLocaleString('pl-PL', { weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+
+async function call(path, opts = {}) {
+  const r = await fetch('/api/admin' + path, { ...opts, headers: { 'Content-Type':'application/json', Authorization:'Bearer ' + token } });
+  const d = await r.json().catch(() => ({}));
+  if (r.status === 401) { logout(); throw new Error('Brak dostępu'); }
+  if (!r.ok) throw new Error(d.error || 'Błąd');
+  return d;
+}
+
+function show() {
+  $('#login').hidden = !!token; $('#app').hidden = !token;
+  if (token) load();
+}
+function logout() { token = null; try { sessionStorage.removeItem('adm'); } catch {} show(); }
+
+async function load() {
+  if (editing) return;
+  try {
+    rides = await call('/rides');
+    const pend = rides.filter((r) => r.status === 'pending').length;
+    document.title = (pend ? `(${pend}) ` : '') + 'Panel dyspozytora';
+    render();
+  } catch (e) { $('#list').innerHTML = `<p class="err">${esc(e.message)}</p>`; }
+}
+
+function render() {
+  const list = rides.filter((r) =>
+    filter === 'all' ? true : filter === 'pending' ? r.status === 'pending' : ['pending','confirmed','driver_on_way','in_progress'].includes(r.status));
+  if (!list.length) { $('#list').innerHTML = '<div class="empty">Brak zamówień</div>'; return; }
+  $('#list').innerHTML = list.map((r) => `
+    <div class="card" data-id="${r.id}">
+      <div class="row">
+        <span class="badge ${r.status}">${STATUS[r.status]}</span>
+        <strong>${r.scheduledAt ? fmt(r.scheduledAt) : 'JAK NAJSZYBCIEJ'}</strong>
+        <span class="muted">zamówiono ${fmt(r.createdAt)}</span>
+      </div>
+      <div class="row" style="margin-top:12px; align-items:flex-start">
+        <div class="grow">
+          <div>● ${esc(r.pickup.address)}</div>
+          <div>■ ${esc(r.destination.address)}</div>
+          <div class="muted" style="margin-top:6px">${CAR[r.carClass]} · ${r.passengers} os. · ${PAY[r.payment]}${r.distanceKm ? ' · ' + r.distanceKm + ' km' : ''}
+          ${r.extras.length ? '<br>Dodatki: ' + r.extras.map((e) => EXTRA[e]).join(', ') : ''}
+          ${r.flightNumber ? '<br>Lot: ' + esc(r.flightNumber) : ''}
+          ${r.notes ? '<br>Uwagi: ' + esc(r.notes) : ''}</div>
+        </div>
+        <div class="grow">
+          <div><strong>${esc(r.customer?.name || '—')}</strong></div>
+          <div><a href="tel:${esc(r.customer?.phone)}">${esc(r.customer?.phone)}</a> · <span class="muted">${esc(r.customer?.email)}</span></div>
+          ${r.payment === 'invoice' ? `<div class="muted">Faktura: ${esc(r.customer?.companyName)} NIP ${esc(r.customer?.nip)}</div>` : ''}
+          ${r.driver ? `<div style="margin-top:6px">Kierowca: ${esc(r.driver.name)} · ${esc(r.driver.car)} · ${esc(r.driver.plate)}</div>` : ''}
+        </div>
+        <div class="price">${r.priceEstimate != null ? r.priceEstimate + ' zł' : 'do wyceny'}</div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <select class="st">${Object.entries(STATUS).map(([k, l]) => `<option value="${k}" ${k === r.status ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        <input class="pr" type="number" min="0" placeholder="Cena zł" value="${r.priceEstimate ?? ''}" style="width:110px" />
+        <button class="save">Zapisz</button>
+        <button class="drv">${r.driver ? 'Zmień kierowcę' : 'Przydziel kierowcę'}</button>
+      </div>
+      <form class="driver" hidden>
+        <input name="name" placeholder="Imię kierowcy" value="${esc(r.driver?.name)}" required />
+        <input name="phone" placeholder="Telefon" value="${esc(r.driver?.phone)}" required />
+        <input name="car" placeholder="Samochód" value="${esc(r.driver?.car || 'Tesla ' + CAR[r.carClass].split(' · ')[0])}" required />
+        <input name="plate" placeholder="Rejestracja" value="${esc(r.driver?.plate)}" required />
+        <button class="primary">Przydziel i potwierdź</button>
+      </form>
+      <p class="err"></p>
+    </div>`).join('');
+}
+
+$('#list').addEventListener('click', async (e) => {
+  const card = e.target.closest('.card'); if (!card) return;
+  const id = card.dataset.id, err = card.querySelector('.err');
+  if (e.target.classList.contains('drv')) { const f = card.querySelector('form'); f.hidden = !f.hidden; editing = !f.hidden; }
+  if (e.target.classList.contains('save')) {
+    const pr = card.querySelector('.pr').value;
+    try { await call('/rides/' + id, { method:'PATCH', body: JSON.stringify({ status: card.querySelector('.st').value, priceEstimate: pr === '' ? null : Number(pr) }) }); editing = false; load(); }
+    catch (x) { err.textContent = x.message; }
+  }
+});
+$('#list').addEventListener('focusin', () => { editing = true; });
+$('#list').addEventListener('focusout', () => { setTimeout(() => { if (!document.activeElement.closest?.('.card')) editing = false; }, 0); });
+$('#list').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const card = e.target.closest('.card'), f = new FormData(e.target);
+  const r = rides.find((x) => x.id === card.dataset.id);
+  try {
+    const pr = card.querySelector('.pr').value;
+    const body = { driver: Object.fromEntries(f), status: r.status === 'pending' ? 'confirmed' : r.status };
+    if (pr !== '') body.priceEstimate = Number(pr);
+    await call('/rides/' + card.dataset.id, { method:'PATCH', body: JSON.stringify(body) });
+    editing = false; load();
+  } catch (x) { card.querySelector('.err').textContent = x.message; }
+});
+document.querySelectorAll('.tabs button').forEach((b) => b.onclick = () => {
+  filter = b.dataset.f; document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('on', x === b)); render();
+});
+$('#go').onclick = async () => {
+  token = $('#tok').value.trim();
+  try { await call('/rides'); try { sessionStorage.setItem('adm', token); } catch {} show(); }
+  catch (e) { $('#lerr').textContent = 'Niepoprawny token'; token = null; }
+};
+$('#tok').onkeydown = (e) => { if (e.key === 'Enter') $('#go').click(); };
+$('#out').onclick = logout;
+setInterval(load, 15000);
+show();
+</script>
+</body>
+</html>
