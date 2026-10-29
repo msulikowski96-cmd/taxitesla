@@ -30,4 +30,8 @@ export const remoteApi: Api = {
   getRide: (token, id) => request(`/api/rides/${id}`, { token }),
   createRide: (token, input) => request('/api/rides', { method: 'POST', token, body: input }),
   cancelRide: (token, id) => request(`/api/rides/${id}/cancel`, { method: 'POST', token }),
+  driverJobs: (token) => request('/api/driver/rides', { token }),
+  acceptJob: (token, id) => request(`/api/driver/rides/${id}/accept`, { method: 'POST', token }),
+  advanceJob: (token, id, status) => request(`/api/driver/rides/${id}/status`, { method: 'POST', token, body: { status } }),
+  releaseJob: (token, id) => request(`/api/driver/rides/${id}/release`, { method: 'POST', token }),
 };

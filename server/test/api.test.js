@@ -98,3 +98,49 @@ test('delete account removes data', async () => {
   assert.equal((await call('DELETE', '/me', null, token)).status, 204);
   assert.equal((await call('GET', '/me', null, token)).status, 401);
 });
+
+test('driver: admin creates account, driver accepts and completes a ride', async () => {
+  const admin = 'admin-token-123456';
+  const c = await call('POST', '/auth/register', { ...user, email: 'klient2@example.com', phone: '601 000 111' });
+  const customer = c.data.token;
+  const d = await call('POST', '/admin/drivers', { firstName: 'Mateusz', lastName: 'S', phone: '500 100 200', password: 'kierowca1', plate: 'PO 1234Y' }, admin);
+  assert.equal(d.status, 201);
+  assert.equal(d.data.role, 'driver');
+  assert.equal(d.data.passwordHash, undefined);
+  // public sign-up never creates drivers, and customers can't use driver routes
+  assert.equal((await call('GET', '/driver/rides', null, customer)).status, 403);
+
+  const login = await call('POST', '/auth/login', { login: '500100200', password: 'kierowca1' });
+  const driver = login.data.token;
+  assert.equal(login.data.user.role, 'driver');
+
+  const r = await call('POST', '/rides', ride, customer);
+  let jobs = await call('GET', '/driver/rides', null, driver);
+  const job = jobs.data.available.find((x) => x.id === r.data.id);
+  assert.ok(job, 'new ride is listed for drivers');
+  assert.equal(job.customer.phone, undefined, 'phone hidden before accepting');
+
+  // can't skip ahead before accepting
+  assert.equal((await call('POST', `/driver/rides/${r.data.id}/status`, { status: 'in_progress' }, driver)).status, 404);
+  const acc = await call('POST', `/driver/rides/${r.data.id}/accept`, null, driver);
+  assert.equal(acc.status, 200);
+  assert.equal(acc.data.status, 'confirmed');
+  assert.equal(acc.data.customer.phone, '+48601000111');
+  assert.equal((await call('POST', `/driver/rides/${r.data.id}/accept`, null, driver)).status, 409);
+
+  // customer sees the driver
+  const seen = await call('GET', `/rides/${r.data.id}`, null, customer);
+  assert.equal(seen.data.driver.plate, 'PO 1234Y');
+
+  // release returns it to the pool, then accept again and drive it through
+  assert.equal((await call('POST', `/driver/rides/${r.data.id}/release`, null, driver)).data.status, 'pending');
+  await call('POST', `/driver/rides/${r.data.id}/accept`, null, driver);
+  assert.equal((await call('POST', `/driver/rides/${r.data.id}/status`, { status: 'completed' }, driver)).status, 400);
+  for (const status of ['driver_on_way', 'in_progress', 'completed']) {
+    const s = await call('POST', `/driver/rides/${r.data.id}/status`, { status }, driver);
+    assert.equal(s.data.status, status);
+  }
+  jobs = await call('GET', '/driver/rides', null, driver);
+  assert.equal(jobs.data.mine[0].status, 'completed');
+  assert.equal((await call('GET', `/rides/${r.data.id}`, null, customer)).data.status, 'completed');
+});

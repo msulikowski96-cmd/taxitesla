@@ -5,6 +5,7 @@ import { Pressable, Text } from 'react-native';
 import { Screen } from '../components/Screen';
 import { Button, Field, Notice, styles as ui } from '../components/ui';
 import { DEMO_MODE } from '../config';
+import { DEMO_DRIVER } from '../api/local';
 import { useAuth } from '../context/auth';
 import { colors, space } from '../theme';
 
@@ -36,7 +37,10 @@ export default function Login() {
         Zaloguj się, aby zamówić przejazd.
       </Text>
       {DEMO_MODE && (
-        <Notice tone="info" text="Tryb demo: konto jest zapisywane tylko na tym urządzeniu." />
+        <Notice
+          tone="info"
+          text={`Tryb demo: konta są zapisywane tylko na tym urządzeniu. Konto kierowcy: ${DEMO_DRIVER.phone}, hasło ${DEMO_DRIVER.password}.`}
+        />
       )}
       {error && <Notice text={error} />}
       <Field

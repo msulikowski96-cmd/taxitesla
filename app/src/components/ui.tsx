@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -56,6 +56,34 @@ export function Button({
         </View>
       )}
     </Pressable>
+  );
+}
+
+// Destructive action that needs a second tap. Works the same on phones and the web,
+// where native confirm dialogs can be blocked.
+export function ConfirmButton({
+  title,
+  confirmTitle = 'Na pewno? Dotknij ponownie',
+  onConfirm,
+  ...rest
+}: Omit<Parameters<typeof Button>[0], 'onPress'> & { confirmTitle?: string; onConfirm: () => void }) {
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const t = setTimeout(() => setArmed(false), 4000);
+    return () => clearTimeout(t);
+  }, [armed]);
+  return (
+    <Button
+      {...rest}
+      title={armed ? confirmTitle : title}
+      onPress={() => {
+        if (armed) {
+          setArmed(false);
+          onConfirm();
+        } else setArmed(true);
+      }}
+    />
   );
 }
 

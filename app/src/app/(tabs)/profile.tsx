@@ -1,24 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Alert, Linking, Platform, Pressable, Text, View } from 'react-native';
+import { Linking, Pressable, Text, View } from 'react-native';
 import { Screen } from '../../components/Screen';
-import { Button, Card, Checkbox, Field, Notice, SectionTitle, styles as ui } from '../../components/ui';
+import { Button, Card, Checkbox, ConfirmButton, Field, Notice, SectionTitle, styles as ui } from '../../components/ui';
 import { BRAND, DEMO_MODE } from '../../config';
 import { useAuth } from '../../context/auth';
 import { formatPhone } from '../../lib/format';
 import { isEmail, isNip, normalizePhone } from '../../lib/validation';
 import { colors, space } from '../../theme';
-
-function confirmAction(title: string, message: string, onYes: () => void) {
-  if (Platform.OS === 'web') {
-    if (globalThis.confirm?.(`${title}\n\n${message}`)) onYes();
-    return;
-  }
-  Alert.alert(title, message, [
-    { text: 'Nie', style: 'cancel' },
-    { text: 'Tak', style: 'destructive', onPress: onYes },
-  ]);
-}
 
 function ContactRow({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
   return (
@@ -130,12 +119,11 @@ export default function Profile() {
       </Card>
 
       <Button title="Wyloguj się" variant="ghost" icon="log-out-outline" onPress={logout} style={{ marginTop: space.xl }} />
-      <Button
+      <ConfirmButton
         title="Usuń konto"
+        confirmTitle="Usunąć konto i historię? Dotknij ponownie"
         variant="danger"
-        onPress={() =>
-          confirmAction('Usunąć konto?', 'Twoje dane i historia przejazdów zostaną trwale usunięte.', deleteAccount)
-        }
+        onConfirm={deleteAccount}
         style={{ marginTop: space.md }}
       />
     </Screen>

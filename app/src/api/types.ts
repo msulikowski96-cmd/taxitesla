@@ -11,6 +11,8 @@ export type RideStatus =
 
 export type Place = { address: string; lat?: number; lng?: number };
 
+export type Role = 'customer' | 'driver';
+
 export type User = {
   id: string;
   firstName: string;
@@ -20,6 +22,8 @@ export type User = {
   companyName?: string;
   nip?: string;
   marketingConsent: boolean;
+  role?: Role; // missing = customer (accounts created before drivers existed)
+  vehicle?: { car: string; plate: string }; // drivers only
   createdAt: string;
 };
 
@@ -40,9 +44,14 @@ export type Ride = {
   distanceKm: number | null;
   priceEstimate: number | null;
   status: RideStatus;
+  driverId?: string;
   driver?: Driver;
+  // Filled in only in the driver's view. The phone appears once the driver accepts the job.
+  customer?: { name: string; phone?: string };
   createdAt: string;
 };
+
+export type DriverJobs = { available: Ride[]; mine: Ride[] };
 
 export type RegisterInput = {
   firstName: string;
@@ -55,7 +64,7 @@ export type RegisterInput = {
 
 export type RideInput = Omit<
   Ride,
-  'id' | 'userId' | 'status' | 'driver' | 'createdAt'
+  'id' | 'userId' | 'status' | 'driver' | 'driverId' | 'customer' | 'createdAt'
 >;
 
 export type ProfileUpdate = Partial<
@@ -72,6 +81,11 @@ export interface Api {
   getRide(token: string, id: string): Promise<Ride>;
   createRide(token: string, input: RideInput): Promise<Ride>;
   cancelRide(token: string, id: string): Promise<Ride>;
+  // Driver
+  driverJobs(token: string): Promise<DriverJobs>;
+  acceptJob(token: string, id: string): Promise<Ride>;
+  advanceJob(token: string, id: string, status: RideStatus): Promise<Ride>;
+  releaseJob(token: string, id: string): Promise<Ride>;
 }
 
 export class ApiError extends Error {

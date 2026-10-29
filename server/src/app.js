@@ -15,6 +15,8 @@ if (!JWT_SECRET || JWT_SECRET.length < 32) throw new Error('Set JWT_SECRET (min.
 if (!ADMIN_TOKEN || ADMIN_TOKEN.length < 16) throw new Error('Set ADMIN_TOKEN (min. 16 characters)');
 
 const STATUSES = ['pending', 'confirmed', 'driver_on_way', 'in_progress', 'completed', 'cancelled'];
+// The only status changes a driver can make, one step at a time.
+const DRIVER_NEXT = { confirmed: 'driver_on_way', driver_on_way: 'in_progress', in_progress: 'completed' };
 const publicUser = ({ passwordHash, ...u }) => u;
 const publicRide = (r) => r;
 
@@ -30,6 +32,24 @@ function requireUser(req, _res, next) {
   } catch {}
   if (!req.user) return next(new v.HttpError(401, 'Sesja wygasła. Zaloguj się ponownie.'));
   next();
+}
+
+function requireDriver(req, res, next) {
+  requireUser(req, res, (err) => {
+    if (err) return next(err);
+    if (req.user.role !== 'driver') return next(new v.HttpError(403, 'Tylko dla kierowców'));
+    next();
+  });
+}
+
+// What a driver sees about a ride. The customer's phone appears only once the driver has the job.
+function driverView(ride, driverId) {
+  const u = db.users.find((x) => x.id === ride.userId);
+  const mine = ride.driverId === driverId;
+  return {
+    ...ride,
+    customer: u && { name: mine ? `${u.firstName} ${u.lastName}` : u.firstName, phone: mine ? u.phone : undefined },
+  };
 }
 
 function requireAdmin(req, _res, next) {
@@ -75,6 +95,7 @@ function createApp() {
       email,
       phone,
       marketingConsent: !!b.marketingConsent,
+      role: 'customer',
       createdAt: new Date().toISOString(),
       passwordHash: await bcrypt.hash(pw, 10),
     };
@@ -176,6 +197,63 @@ function createApp() {
     res.json(publicRide(ride));
   });
 
+  // ---- Driver ----
+  app.get('/api/driver/rides', requireDriver, (req, res) => {
+    const me = req.user.id;
+    const when = (r) => r.scheduledAt || r.createdAt;
+    const available = db.rides
+      .filter((r) => r.status === 'pending' && !r.driverId && !r.driver)
+      .sort((a, b) => when(a).localeCompare(when(b)));
+    const mine = db.rides
+      .filter((r) => r.driverId === me)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, 100);
+    res.json({ available: available.map((r) => driverView(r, me)), mine: mine.map((r) => driverView(r, me)) });
+  });
+
+  app.post('/api/driver/rides/:id/accept', requireDriver, (req, res) => {
+    const ride = db.rides.find((r) => r.id === req.params.id);
+    if (!ride) throw new v.HttpError(404, 'Nie znaleziono zlecenia');
+    if (ride.status !== 'pending' || ride.driverId || ride.driver)
+      throw new v.HttpError(409, 'To zlecenie jest już nieaktualne');
+    const d = req.user;
+    ride.driverId = d.id;
+    ride.driver = {
+      name: `${d.firstName} ${d.lastName[0] || ''}.`.trim(),
+      phone: d.phone,
+      car: d.vehicle?.car || 'Tesla Model Y',
+      plate: d.vehicle?.plate || '',
+      rating: 5,
+    };
+    ride.status = 'confirmed';
+    ride.updatedAt = new Date().toISOString();
+    db.save();
+    res.json(driverView(ride, d.id));
+  });
+
+  app.post('/api/driver/rides/:id/status', requireDriver, (req, res) => {
+    const ride = db.rides.find((r) => r.id === req.params.id && r.driverId === req.user.id);
+    if (!ride) throw new v.HttpError(404, 'Nie znaleziono zlecenia');
+    if (DRIVER_NEXT[ride.status] !== req.body?.status) throw v.bad('Nie można zmienić statusu tego przejazdu');
+    ride.status = req.body.status;
+    ride.updatedAt = new Date().toISOString();
+    db.save();
+    res.json(driverView(ride, req.user.id));
+  });
+
+  // Driver gives the job back before setting off; it returns to the list of open orders.
+  app.post('/api/driver/rides/:id/release', requireDriver, (req, res) => {
+    const ride = db.rides.find((r) => r.id === req.params.id && r.driverId === req.user.id);
+    if (!ride) throw new v.HttpError(404, 'Nie znaleziono zlecenia');
+    if (ride.status !== 'confirmed') throw v.bad('Można oddać tylko zlecenie, do którego jeszcze nie jedziesz');
+    delete ride.driverId;
+    delete ride.driver;
+    ride.status = 'pending';
+    ride.updatedAt = new Date().toISOString();
+    db.save();
+    res.json(driverView(ride, req.user.id));
+  });
+
   // ---- Dispatcher panel ----
   app.get('/api/admin/rides', requireAdmin, (_req, res) => {
     const byId = Object.fromEntries(db.users.map((u) => [u.id, u]));
@@ -187,6 +265,50 @@ function createApp() {
         return { ...r, customer: u && { name: `${u.firstName} ${u.lastName}`, phone: u.phone, email: u.email, companyName: u.companyName, nip: u.nip } };
       });
     res.json(rides);
+  });
+
+  app.get('/api/admin/drivers', requireAdmin, (_req, res) => {
+    res.json(db.users.filter((u) => u.role === 'driver').map(publicUser));
+  });
+
+  // Driver accounts are created by the business, never through public sign-up.
+  app.post('/api/admin/drivers', requireAdmin, async (req, res) => {
+    const b = req.body || {};
+    const phone = v.normalizePhone(b.phone);
+    if (!phone) throw v.bad('Niepoprawny numer telefonu');
+    const email = b.email ? String(b.email).trim().toLowerCase() : `kierowca-${phone.slice(1)}@kierowcy.local`;
+    if (b.email && !v.isEmail(email)) throw v.bad('Niepoprawny adres e-mail');
+    checkUnique(email, phone);
+    const driver = {
+      id: crypto.randomUUID(),
+      firstName: v.str(b.firstName, 'imię', 60),
+      lastName: v.str(b.lastName, 'nazwisko', 60),
+      email,
+      phone,
+      role: 'driver',
+      vehicle: { car: v.str(b.car, 'samochód', 80, false) || 'Tesla Model Y', plate: v.str(b.plate, 'rejestracja', 20) },
+      marketingConsent: false,
+      createdAt: new Date().toISOString(),
+      passwordHash: await bcrypt.hash(v.password(b.password), 10),
+    };
+    db.users.push(driver);
+    db.save();
+    res.status(201).json(publicUser(driver));
+  });
+
+  app.delete('/api/admin/drivers/:id', requireAdmin, (req, res) => {
+    const d = db.users.find((u) => u.id === req.params.id && u.role === 'driver');
+    if (!d) throw new v.HttpError(404, 'Nie znaleziono kierowcy');
+    db.users = db.users.filter((u) => u.id !== d.id);
+    // Give back the driver's open jobs so they aren't stuck.
+    for (const r of db.rides)
+      if (r.driverId === d.id && r.status === 'confirmed') {
+        delete r.driverId;
+        delete r.driver;
+        r.status = 'pending';
+      }
+    db.save();
+    res.status(204).end();
   });
 
   app.patch('/api/admin/rides/:id', requireAdmin, (req, res) => {
@@ -203,8 +325,11 @@ function createApp() {
       ride.priceEstimate = p;
     }
     if (b.driver !== undefined) {
-      if (b.driver === null) delete ride.driver;
-      else {
+      if (b.driver === null) {
+        delete ride.driver;
+        delete ride.driverId;
+      } else {
+        delete ride.driverId; // assigned by hand in the panel, not by a driver account
         const phone = v.normalizePhone(b.driver.phone);
         if (!phone) throw v.bad('Niepoprawny telefon kierowcy');
         ride.driver = {
