@@ -15,7 +15,7 @@ server/   API (Node.js + Express) + panel dyspozytora pod /admin
 - Zamawia przejazd:
   - adres odbioru i cel (wpisany ręcznie, „moja lokalizacja” z GPS albo szybki wybór: Ławica, Dworzec, Stary Rynek, MTP, Berlin BER, Lotnisko Chopina…)
   - teraz albo na konkretny dzień i godzinę (do 14 dni wprzód)
-  - wybór Tesli: Model 3 (Premium), Model Y (Premium XL), Model S (Business), Model X (VIP, do 6 osób)
+  - przejazd Teslą Model Y (do 4 osób, 4 bagaże)
   - liczba pasażerów, dodatki (fotelik, powitanie z tabliczką, zwierzę, bagaż), numer lotu przy transferach lotniskowych
   - płatność: karta/BLIK w aucie, gotówka lub faktura VAT dla firmy (NIP sprawdzany sumą kontrolną)
   - **cena widoczna przed zamówieniem** (taryfa dzienna/nocna)
@@ -37,12 +37,9 @@ Popularne miejsca: `app/src/lib/places.ts`
 
 Domyślny cennik (zł):
 
-| Klasa | Auto | Opłata startowa | za km | minimum |
-|---|---|---|---|---|
-| Premium | Model 3 | 15 | 4,20 | 35 |
-| Premium XL | Model Y | 18 | 4,80 | 40 |
-| Business | Model S | 25 | 6,00 | 60 |
-| VIP | Model X | 35 | 7,50 | 90 |
+| Auto | Opłata startowa | za km | minimum |
+|---|---|---|---|
+| Tesla Model Y | 18 | 4,80 | 40 |
 
 Noc (22:00–6:00): +20%. Dystans liczony z odległości w linii prostej × 1,3.
 

@@ -57,7 +57,7 @@
 
 <script>
 const STATUS = { pending:'Oczekuje', confirmed:'Potwierdzony', driver_on_way:'Kierowca w drodze', in_progress:'W trakcie', completed:'Zakończony', cancelled:'Anulowany' };
-const CAR = { premium:'Model 3 · Premium', comfort:'Model Y · Premium XL', business:'Model S · Business', vip:'Model X · VIP' };
+const CAR = { model_y:'Tesla Model Y' };
 const EXTRA = { child_seat:'Fotelik', meet_greet:'Powitanie z tabliczką', pet:'Zwierzę', extra_luggage:'Dodatkowy bagaż' };
 const PAY = { card:'Karta/BLIK', cash:'Gotówka', invoice:'Faktura' };
 let token = null, filter = 'active', rides = [], editing = false;
@@ -106,7 +106,7 @@ function render() {
         <div class="grow">
           <div>● ${esc(r.pickup.address)}</div>
           <div>■ ${esc(r.destination.address)}</div>
-          <div class="muted" style="margin-top:6px">${CAR[r.carClass]} · ${r.passengers} os. · ${PAY[r.payment]}${r.distanceKm ? ' · ' + r.distanceKm + ' km' : ''}
+          <div class="muted" style="margin-top:6px">${esc(CAR[r.carClass] || r.carClass)} · ${r.passengers} os. · ${PAY[r.payment]}${r.distanceKm ? ' · ' + r.distanceKm + ' km' : ''}
           ${r.extras.length ? '<br>Dodatki: ' + r.extras.map((e) => EXTRA[e]).join(', ') : ''}
           ${r.flightNumber ? '<br>Lot: ' + esc(r.flightNumber) : ''}
           ${r.notes ? '<br>Uwagi: ' + esc(r.notes) : ''}</div>
@@ -128,7 +128,7 @@ function render() {
       <form class="driver" hidden>
         <input name="name" placeholder="Imię kierowcy" value="${esc(r.driver?.name)}" required />
         <input name="phone" placeholder="Telefon" value="${esc(r.driver?.phone)}" required />
-        <input name="car" placeholder="Samochód" value="${esc(r.driver?.car || 'Tesla ' + CAR[r.carClass].split(' · ')[0])}" required />
+        <input name="car" placeholder="Samochód" value="${esc(r.driver?.car || CAR[r.carClass] || 'Tesla Model Y')}" required />
         <input name="plate" placeholder="Rejestracja" value="${esc(r.driver?.plate)}" required />
         <button class="primary">Przydziel i potwierdź</button>
       </form>

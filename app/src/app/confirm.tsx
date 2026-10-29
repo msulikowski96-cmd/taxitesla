@@ -86,7 +86,7 @@ export default function Confirm() {
           label="Termin"
           value={draft.scheduledAt ? `${formatDay(draft.scheduledAt)}, ${formatTime(draft.scheduledAt)}` : 'Jak najszybciej'}
         />
-        <Line label="Samochód" value={`${car.model} (${car.name})`} />
+        <Line label="Samochód" value={car.model} />
         <Line label="Pasażerowie" value={String(draft.passengers)} />
         {draft.extras.length > 0 && (
           <Line label="Dodatki" value={draft.extras.map((id) => EXTRAS.find((e) => e.id === id)?.label).join(', ')} />

@@ -178,9 +178,7 @@ export default function RideDetails() {
 
       <SectionTitle>Szczegóły</SectionTitle>
       <Card>
-        <Text style={ui.body}>
-          {car.model} · {car.name}
-        </Text>
+        <Text style={ui.body}>{car.model}</Text>
         <Text style={ui.muted}>
           Pasażerowie: {ride.passengers}
           {ride.extras.length > 0 && ` · ${ride.extras.map((e) => EXTRAS.find((x) => x.id === e)?.label).join(', ')}`}

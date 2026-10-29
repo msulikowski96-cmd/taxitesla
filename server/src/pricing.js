@@ -1,9 +1,6 @@
 // Same tariff as app/src/lib/pricing.ts. The server recomputes the price so clients can't change it.
 const CAR_CLASSES = {
-  premium: { model: 'Tesla Model 3', seats: 4, startFee: 15, perKm: 4.2, minFare: 35 },
-  comfort: { model: 'Tesla Model Y', seats: 4, startFee: 18, perKm: 4.8, minFare: 40 },
-  business: { model: 'Tesla Model S', seats: 4, startFee: 25, perKm: 6, minFare: 60 },
-  vip: { model: 'Tesla Model X', seats: 6, startFee: 35, perKm: 7.5, minFare: 90 },
+  model_y: { model: 'Tesla Model Y', seats: 4, startFee: 18, perKm: 4.8, minFare: 40 },
 };
 
 const EXTRAS = { child_seat: 20, meet_greet: 30, pet: 15, extra_luggage: 10 };

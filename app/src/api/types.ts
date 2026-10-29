@@ -1,4 +1,4 @@
-export type CarClassId = 'premium' | 'comfort' | 'business' | 'vip';
+export type CarClassId = 'model_y';
 export type ExtraId = 'child_seat' | 'meet_greet' | 'pet' | 'extra_luggage';
 export type PaymentMethod = 'card' | 'cash' | 'invoice';
 export type RideStatus =

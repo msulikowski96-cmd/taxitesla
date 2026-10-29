@@ -18,7 +18,7 @@ export const emptyDraft = (): OrderDraft => ({
   pickup: { address: '' },
   destination: { address: '' },
   scheduledAt: null,
-  carClass: 'premium',
+  carClass: 'model_y',
   passengers: 1,
   extras: [],
   payment: 'card',

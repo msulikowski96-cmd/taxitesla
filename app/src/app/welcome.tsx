@@ -8,7 +8,7 @@ import { BRAND } from '../config';
 import { colors, radius, space } from '../theme';
 
 const PERKS: { icon: keyof typeof Ionicons.glyphMap; title: string; text: string }[] = [
-  { icon: 'flash-outline', title: '100% elektryczna flota', text: 'Ciche, czyste i nowoczesne Tesle' },
+  { icon: 'flash-outline', title: 'Tesla Model Y', text: 'Cicha, elektryczna i przestronna – do 4 osób' },
   { icon: 'pricetag-outline', title: 'Cena przed jazdą', text: 'Widzisz koszt, zanim zamówisz' },
   { icon: 'shield-checkmark-outline', title: 'Licencjonowani kierowcy', text: 'Doświadczeni, mówią po angielsku' },
   { icon: 'airplane-outline', title: 'Transfery lotniskowe', text: 'Ławica, Berlin, Warszawa – z powitaniem' },
@@ -35,7 +35,7 @@ export default function Welcome() {
             <Ionicons name="car-sport" size={72} color={colors.silver} style={{ marginBottom: space.lg }} />
             <Text style={[ui.h1, { fontSize: 36, lineHeight: 40 }]}>Podróżuj{'\n'}w ciszy i komforcie.</Text>
             <Text style={[ui.muted, { fontSize: 15, marginTop: space.md }]}>
-              {BRAND.tagline}. Zamów Teslę z kierowcą w kilka sekund.
+              {BRAND.tagline}. Zamów Teslę Model Y z kierowcą w kilka sekund.
             </Text>
           </LinearGradient>
 
