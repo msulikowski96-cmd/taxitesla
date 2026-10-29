@@ -49,10 +49,28 @@
       <button data-f="active" class="on">Aktywne</button>
       <button data-f="pending">Do potwierdzenia</button>
       <button data-f="all">Wszystkie</button>
+      <button data-f="drivers">Kierowcy</button>
     </div>
     <button id="out">Wyloguj</button>
   </header>
   <main id="list"></main>
+  <main id="drivers" hidden>
+    <div class="card">
+      <h3 style="margin-top:0">Dodaj kierowcę</h3>
+      <p class="muted">Kierowca loguje się w aplikacji numerem telefonu i tym hasłem, widzi nowe zlecenia i sam je przyjmuje.</p>
+      <form id="addDriver" class="driver" style="margin-top:0">
+        <input name="firstName" placeholder="Imię" required />
+        <input name="lastName" placeholder="Nazwisko" required />
+        <input name="phone" placeholder="Telefon" required />
+        <input name="password" type="password" placeholder="Hasło (min. 8, litery i cyfry)" required autocomplete="new-password" />
+        <input name="plate" placeholder="Rejestracja" required />
+        <input name="car" placeholder="Samochód" value="Tesla Model Y" />
+        <button class="primary">Dodaj kierowcę</button>
+      </form>
+      <p class="err" id="derr"></p>
+    </div>
+    <div id="dlist"></div>
+  </main>
 </div>
 
 <script>
@@ -91,7 +109,22 @@ async function load() {
   } catch (e) { $('#list').innerHTML = `<p class="err">${esc(e.message)}</p>`; }
 }
 
+async function loadDrivers() {
+  try {
+    const ds = await call('/drivers');
+    $('#dlist').innerHTML = ds.length ? ds.map((d) => `
+      <div class="card row" data-id="${d.id}">
+        <div class="grow"><strong>${esc(d.firstName)} ${esc(d.lastName)}</strong><br>
+          <span class="muted">${esc(d.phone)} · ${esc(d.vehicle?.car)} · ${esc(d.vehicle?.plate)}</span></div>
+        <button class="del">Usuń</button>
+      </div>`).join('') : '<div class="empty">Brak kierowców. Dodaj siebie, aby przyjmować zlecenia w aplikacji.</div>';
+  } catch (e) { $('#derr').textContent = e.message; }
+}
+
 function render() {
+  const drv = filter === 'drivers';
+  $('#list').hidden = drv; $('#drivers').hidden = !drv;
+  if (drv) return;
   const list = rides.filter((r) =>
     filter === 'all' ? true : filter === 'pending' ? r.status === 'pending' : ['pending','confirmed','driver_on_way','in_progress'].includes(r.status));
   if (!list.length) { $('#list').innerHTML = '<div class="empty">Brak zamówień</div>'; return; }
@@ -162,6 +195,7 @@ $('#list').addEventListener('submit', async (e) => {
 });
 document.querySelectorAll('.tabs button').forEach((b) => b.onclick = () => {
   filter = b.dataset.f; document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('on', x === b)); render();
+  if (filter === 'drivers') loadDrivers();
 });
 $('#go').onclick = async () => {
   token = $('#tok').value.trim();
@@ -170,6 +204,23 @@ $('#go').onclick = async () => {
 };
 $('#tok').onkeydown = (e) => { if (e.key === 'Enter') $('#go').click(); };
 $('#out').onclick = logout;
+$('#addDriver').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  $('#derr').textContent = '';
+  try {
+    await call('/drivers', { method:'POST', body: JSON.stringify(Object.fromEntries(new FormData(e.target))) });
+    e.target.reset(); e.target.car.value = 'Tesla Model Y'; loadDrivers();
+  } catch (x) { $('#derr').textContent = x.message; }
+});
+let pendingDelete = null;
+$('#dlist').addEventListener('click', async (e) => {
+  if (!e.target.classList.contains('del')) return;
+  const id = e.target.closest('.card').dataset.id;
+  // Two taps to delete, since the panel can't show a confirm dialog everywhere.
+  if (pendingDelete !== id) { pendingDelete = id; e.target.textContent = 'Na pewno usunąć?'; return; }
+  pendingDelete = null;
+  try { await call('/drivers/' + id, { method:'DELETE' }); loadDrivers(); } catch (x) { $('#derr').textContent = x.message; }
+});
 setInterval(load, 15000);
 show();
 </script>

@@ -5,7 +5,6 @@ import { getItem, setItem } from './storage';
 import {
   Api,
   ApiError,
-  Driver,
   ProfileUpdate,
   RegisterInput,
   Ride,
@@ -13,33 +12,51 @@ import {
   User,
 } from './types';
 import { isEmail, normalizePhone } from '../lib/validation';
-import { getCarClass } from '../lib/pricing';
+import { DRIVER_NEXT } from '../lib/driver';
 
 type StoredUser = User & { passwordHash: string; salt: string };
 type DB = { users: StoredUser[]; rides: Ride[]; sessions: Record<string, string> };
 
 const DB_KEY = 'demo_db_v1';
 
-const DEMO_DRIVERS: Omit<Driver, 'car'>[] = [
-  { name: 'Marek W.', phone: '+48600111222', plate: 'PO 7E5LA', rating: 4.98 },
-  { name: 'Anna K.', phone: '+48600333444', plate: 'PO 3TE5L', rating: 4.95 },
-  { name: 'Piotr N.', phone: '+48600555666', plate: 'PO 1VOLT', rating: 4.97 },
-];
+// Built-in driver account so the demo can show both sides on one phone.
+export const DEMO_DRIVER = { phone: '500 000 000', password: 'kierowca1' };
+
+async function hash(password: string, salt: string) {
+  return Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, `${salt}:${password}`);
+}
+
+async function seedDriver(db: DB) {
+  if (db.users.some((u) => u.role === 'driver')) return;
+  const salt = 'demo-driver';
+  db.users.push({
+    id: 'demo-driver',
+    firstName: 'Kierowca',
+    lastName: 'Demo',
+    email: 'kierowca@demo.local',
+    phone: normalizePhone(DEMO_DRIVER.phone)!,
+    role: 'driver',
+    vehicle: { car: 'Tesla Model Y', plate: 'PO 7E5LY' },
+    marketingConsent: false,
+    createdAt: new Date().toISOString(),
+    salt,
+    passwordHash: await hash(DEMO_DRIVER.password, salt),
+  });
+}
 
 async function load(): Promise<DB> {
+  let db: DB = { users: [], rides: [], sessions: {} };
   const raw = await getItem(DB_KEY);
-  if (!raw) return { users: [], rides: [], sessions: {} };
-  try {
-    return JSON.parse(raw) as DB;
-  } catch {
-    return { users: [], rides: [], sessions: {} };
+  if (raw) {
+    try {
+      db = JSON.parse(raw) as DB;
+    } catch {}
   }
+  await seedDriver(db);
+  return db;
 }
 
 const save = (db: DB) => setItem(DB_KEY, JSON.stringify(db));
-
-const hash = (password: string, salt: string) =>
-  Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, `${salt}:${password}`);
 
 const strip = ({ passwordHash, salt, ...u }: StoredUser): User => u;
 
@@ -50,12 +67,26 @@ function userFor(db: DB, token: string): StoredUser {
   return user;
 }
 
-// Simulates the dispatcher: rides get confirmed and a driver assigned after a short while.
-function advance(ride: Ride): Ride {
-  if (ride.status !== 'pending') return ride;
-  if (Date.now() - new Date(ride.createdAt).getTime() < 8000) return ride;
-  const d = DEMO_DRIVERS[Math.floor(Math.random() * DEMO_DRIVERS.length)];
-  return { ...ride, status: 'confirmed', driver: { ...d, car: getCarClass(ride.carClass).model } };
+function driverFor(db: DB, token: string): StoredUser {
+  const user = userFor(db, token);
+  if (user.role !== 'driver') throw new ApiError('Tylko dla kierowców', 403);
+  return user;
+}
+
+// Same rule as the server: the customer's phone shows only after the driver accepts.
+function driverView(db: DB, ride: Ride, driverId: string): Ride {
+  const u = db.users.find((x) => x.id === ride.userId);
+  const mine = ride.driverId === driverId;
+  return {
+    ...ride,
+    customer: u && { name: mine ? `${u.firstName} ${u.lastName}` : u.firstName, phone: mine ? u.phone : undefined },
+  };
+}
+
+function ownJob(db: DB, driver: StoredUser, id: string): Ride {
+  const ride = db.rides.find((r) => r.id === id && r.driverId === driver.id);
+  if (!ride) throw new ApiError('Nie znaleziono zlecenia', 404);
+  return ride;
 }
 
 async function startSession(db: DB, user: StoredUser) {
@@ -87,6 +118,7 @@ export const localApi: Api = {
       lastName: input.lastName.trim(),
       email,
       phone,
+      role: 'customer',
       marketingConsent: input.marketingConsent,
       createdAt: new Date().toISOString(),
       salt,
@@ -138,8 +170,6 @@ export const localApi: Api = {
   async listRides(token) {
     const db = await load();
     const user = userFor(db, token);
-    db.rides = db.rides.map(advance);
-    await save(db);
     return db.rides
       .filter((r) => r.userId === user.id)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -177,5 +207,64 @@ export const localApi: Api = {
     ride.status = 'cancelled';
     await save(db);
     return ride;
+  },
+
+  async driverJobs(token) {
+    const db = await load();
+    const me = driverFor(db, token);
+    const when = (r: Ride) => r.scheduledAt || r.createdAt;
+    const available = db.rides
+      .filter((r) => r.status === 'pending' && !r.driverId)
+      .sort((a, b) => when(a).localeCompare(when(b)));
+    const mine = db.rides
+      .filter((r) => r.driverId === me.id)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return {
+      available: available.map((r) => driverView(db, r, me.id)),
+      mine: mine.map((r) => driverView(db, r, me.id)),
+    };
+  },
+
+  async acceptJob(token, id) {
+    const db = await load();
+    const me = driverFor(db, token);
+    const ride = db.rides.find((r) => r.id === id);
+    if (!ride) throw new ApiError('Nie znaleziono zlecenia', 404);
+    if (ride.status !== 'pending' || ride.driverId) throw new ApiError('To zlecenie jest już nieaktualne', 409);
+    ride.driverId = me.id;
+    ride.driver = {
+      name: `${me.firstName} ${me.lastName[0] ?? ''}.`.trim(),
+      phone: me.phone,
+      car: me.vehicle?.car ?? 'Tesla Model Y',
+      plate: me.vehicle?.plate ?? '',
+      rating: 5,
+    };
+    ride.status = 'confirmed';
+    await save(db);
+    return driverView(db, ride, me.id);
+  },
+
+  async advanceJob(token, id, status) {
+    const db = await load();
+    const me = driverFor(db, token);
+    const ride = ownJob(db, me, id);
+    if (DRIVER_NEXT[ride.status]?.status !== status)
+      throw new ApiError('Nie można zmienić statusu tego przejazdu');
+    ride.status = status;
+    await save(db);
+    return driverView(db, ride, me.id);
+  },
+
+  async releaseJob(token, id) {
+    const db = await load();
+    const me = driverFor(db, token);
+    const ride = ownJob(db, me, id);
+    if (ride.status !== 'confirmed')
+      throw new ApiError('Można oddać tylko zlecenie, do którego jeszcze nie jedziesz');
+    delete ride.driverId;
+    delete ride.driver;
+    ride.status = 'pending';
+    await save(db);
+    return driverView(db, ride, me.id);
   },
 };

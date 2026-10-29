@@ -25,9 +25,19 @@ server/   API (Node.js + Express) + panel dyspozytora pod /admin
 - Edytuje dane kontaktowe i dane do faktury, usuwa konto (RODO)
 - Szybki kontakt z dyspozytorem: telefon, WhatsApp, e-mail
 
+**Kierowca** (ten sam program – logowanie numerem telefonu kierowcy)
+- Lista nowych zleceń odświeżana co kilka sekund (telefon wibruje przy nowym zleceniu, gdy aplikacja jest otwarta)
+- „Przyjmij zlecenie” – klient od razu widzi kierowcę, auto i numer rejestracyjny
+- Kolejne kroki jednym przyciskiem: „Jadę po klienta” → „Klient w aucie – start kursu” → „Zakończ kurs”
+- Nawigacja do klienta i do celu w Google Maps lub Waze, telefon i SMS do klienta
+- „Oddaj zlecenie”, jeśli nie możesz pojechać – wraca na listę
+- Konta kierowców zakłada się w panelu dyspozytora (zakładka „Kierowcy”); zwykła rejestracja w aplikacji zawsze tworzy konto klienta
+- W trybie demo jest wbudowane konto kierowcy: telefon `500 000 000`, hasło `kierowca1`
+
 **Dyspozytor** (`/admin` na serwerze)
 - Lista nowych i aktywnych zamówień z danymi i telefonem klienta
-- Przydzielanie kierowcy, zmiana statusu i ceny – klient widzi zmiany w aplikacji w ciągu kilku sekund
+- Przydzielanie kierowcy ręcznie, zmiana statusu i ceny – klient widzi zmiany w aplikacji w ciągu kilku sekund
+- Zakładanie i usuwanie kont kierowców
 
 ## Konfiguracja firmy
 
@@ -105,6 +115,6 @@ Potrzebne: konto Apple Developer (99 USD/rok) i Google Play Console (25 USD jedn
 - Weryfikacja numeru telefonu kodem SMS (np. SMSAPI.pl) i reset hasła
 - Mapa i autouzupełnianie adresów (Google Places / Mapbox) dla dokładniejszych cen
 - Płatności online w aplikacji (Stripe / Przelewy24 / BLIK)
-- Powiadomienia push o zmianie statusu (expo-notifications)
+- Powiadomienia push o nowym zleceniu (dla kierowcy) i o zmianie statusu (dla klienta) – teraz aplikacja sprawdza zlecenia tylko, gdy jest otwarta
 - Aplikacja dla kierowców z lokalizacją na żywo
 - Uwaga prawna: „Tesla” to znak towarowy Tesla, Inc. – opis floty („jeździmy Teslami”) jest zwykle w porządku, ale nazwę firmy i logo warto skonsultować z prawnikiem

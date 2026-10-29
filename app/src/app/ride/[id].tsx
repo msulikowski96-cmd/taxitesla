@@ -1,13 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Platform, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Text, View } from 'react-native';
 import { api, Ride, RideStatus } from '../../api';
 import { RouteView } from '../../components/RouteView';
 import { Screen } from '../../components/Screen';
 import { StatusBadge } from '../../components/StatusBadge';
-import { Button, Card, Notice, Row, SectionTitle, styles as ui } from '../../components/ui';
-import { BRAND } from '../../config';
+import { Button, Card, ConfirmButton, Notice, Row, SectionTitle, styles as ui } from '../../components/ui';
+import { BRAND, DEMO_MODE } from '../../config';
+import { DEMO_DRIVER } from '../../api/local';
 import { useAuth } from '../../context/auth';
 import { ACTIVE_STATUSES, formatDateTime, formatPhone, formatPrice, STATUS_LABEL } from '../../lib/format';
 import { EXTRAS, getCarClass } from '../../lib/pricing';
@@ -46,18 +47,6 @@ function Timeline({ status }: { status: RideStatus }) {
       })}
     </View>
   );
-}
-
-function confirmCancel(onYes: () => void) {
-  const msg = 'Czy na pewno chcesz anulować ten przejazd?';
-  if (Platform.OS === 'web') {
-    if (globalThis.confirm?.(msg)) onYes();
-    return;
-  }
-  Alert.alert('Anulować przejazd?', msg, [
-    { text: 'Nie', style: 'cancel' },
-    { text: 'Anuluj przejazd', style: 'destructive', onPress: onYes },
-  ]);
 }
 
 export default function RideDetails() {
@@ -115,7 +104,11 @@ export default function RideDetails() {
       {ride.status === 'pending' && (
         <Notice
           tone="success"
-          text="Zamówienie przyjęte! Dyspozytor przydzieli kierowcę i potwierdzi przejazd – status zmieni się automatycznie."
+          text={
+            DEMO_MODE
+              ? `Zamówienie wysłane do kierowcy. W demo możesz je przyjąć sam: wyloguj się i zaloguj jako kierowca (${DEMO_DRIVER.phone}, hasło ${DEMO_DRIVER.password}).`
+              : 'Zamówienie wysłane! Kierowca potwierdzi je za chwilę – status zmieni się automatycznie.'
+          }
         />
       )}
       {error && <Notice text={error} />}
@@ -201,11 +194,12 @@ export default function RideDetails() {
         />
       )}
       {canCancel && (
-        <Button
+        <ConfirmButton
           title="Anuluj przejazd"
+          confirmTitle="Na pewno anulować? Dotknij ponownie"
           variant="danger"
           loading={busy}
-          onPress={() => confirmCancel(cancel)}
+          onConfirm={cancel}
           style={{ marginTop: space.md }}
         />
       )}

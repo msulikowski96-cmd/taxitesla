@@ -77,6 +77,13 @@ export default function Welcome() {
             onPress={() => Linking.openURL(`tel:${BRAND.dispatchPhone.replace(/\s/g, '')}`)}
             style={{ marginTop: space.md }}
           />
+          <Text
+            onPress={() => router.push('/login')}
+            accessibilityRole="link"
+            style={[ui.muted, { textAlign: 'center', marginTop: space.xl, textDecorationLine: 'underline' }]}
+          >
+            Jesteś kierowcą? Zaloguj się tutaj
+          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>

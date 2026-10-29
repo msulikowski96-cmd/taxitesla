@@ -16,6 +16,7 @@ function RootStack() {
     );
   }
   const loggedIn = !!user;
+  const isDriver = user?.role === 'driver';
   return (
     <Stack
       screenOptions={{
@@ -32,10 +33,14 @@ function RootStack() {
         <Stack.Screen name="login" options={{ title: '' }} />
         <Stack.Screen name="register" options={{ title: '' }} />
       </Stack.Protected>
-      <Stack.Protected guard={loggedIn}>
+      <Stack.Protected guard={loggedIn && !isDriver}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="confirm" options={{ title: 'Podsumowanie' }} />
         <Stack.Screen name="ride/[id]" options={{ title: 'Przejazd' }} />
+      </Stack.Protected>
+      <Stack.Protected guard={loggedIn && isDriver}>
+        <Stack.Screen name="(driver)" options={{ headerShown: false }} />
+        <Stack.Screen name="job/[id]" options={{ title: 'Zlecenie' }} />
       </Stack.Protected>
     </Stack>
   );

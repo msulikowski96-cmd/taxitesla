@@ -3,5 +3,6 @@ import { useAuth } from '../context/auth';
 
 export default function Index() {
   const { user } = useAuth();
-  return <Redirect href={user ? '/order' : '/welcome'} />;
+  if (!user) return <Redirect href="/welcome" />;
+  return <Redirect href={user.role === 'driver' ? '/jobs' : '/order'} />;
 }
